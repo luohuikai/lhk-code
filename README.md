@@ -7,6 +7,8 @@ cd cmd
 
 go run . --endpoint ws://175.27.250.177:8080
 
+或者go run . --endpoint ws://192.168.1.134:8080
+
 # 二、进度概况
 ## 7月16日
 完成offer的创建与发送，并成功接收到answer

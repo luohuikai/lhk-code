@@ -880,3 +880,7 @@ func (c *Client) sendCommand(cmd any) error {
 	}).Debug("Sending command")
 	return c.conn.WriteJSON(cmd)
 }
+
+func (c *Client) GetConn() *websocket.Conn {
+    return c.conn
+}

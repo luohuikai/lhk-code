@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gorilla/websocket"
 	"github.com/joho/godotenv"
 	"github.com/pion/webrtc/v3"
 	"github.com/restsend/rustpbxgo"
@@ -33,7 +34,7 @@ type CreateClientOption struct {
 }
 
 // 创建客户端
-func createClient(ctx context.Context, option CreateClientOption, id string) *rustpbxgo.Client {
+func createClient(ctx context.Context, option CreateClientOption, id string, callOption rustpbxgo.CallOption) *rustpbxgo.Client {
 	//创建客户端对象
 	client := rustpbxgo.NewClient(option.Endpoint,
 		rustpbxgo.WithLogger(option.Logger),
@@ -74,6 +75,32 @@ func createClient(ctx context.Context, option CreateClientOption, id string) *ru
 		if event.Text == "" {
 			return 
 		}
+
+		// 显示用户讲话内容
+		option.Logger.Infof("User said: %s", event.Text)
+
+		// 调用 TTS 讲出内容
+		ttsCmd := rustpbxgo.TtsCommand {
+			Command: "tts",
+			Text: event.Text,
+			Speaker: callOption.TTS.Speaker,
+		}
+		ttsData, err := json.Marshal(ttsCmd)
+		if err != nil {
+			option.Logger.Errorf("Failed to marshal TTS command: %v", err)
+			return
+		}
+		err = client.GetConn().WriteMessage(websocket.TextMessage, ttsData)
+		if err != nil {
+			option.Logger.Errorf("Failed to send TTS command: %v", err)
+		}
+
+		// // startTime = time.Now()
+		// segment := "text"
+		// playID := "playID"
+		// autoHangup := false
+
+		// client.TTS(segment, "", playID, autoHangup, nil)
 	}
 	// 收到语音识别中间结果：根据配置决定是否打断TTS
 	client.OnAsrDelta = func(event rustpbxgo.AsrDeltaEvent) {
@@ -106,7 +133,8 @@ func main() {
 	// 加载 .env 环境变量文件
 	godotenv.Load()
 	// 命令行设置
-	var endpoint string = "ws://175.27.250.177:8080"
+	// ws://175.27.250.177:8080
+	var endpoint string = "ws://192.168.1.134:8080"
 	var codec string = "g722"
 	var breakOnVad bool = false
 	var speaker string = "601003"
@@ -115,12 +143,12 @@ func main() {
 	var asrProvider string = "tencent"
 	var asrEndpoint string = "asr.tencentcloudapi.com"
 	var asrAppID string = "1369156880"
-	var asrSecretID string = "YOUR_TENCENT_SECRET_ID"
+	var asrSecretID string = "AKIDoUzV3e5QlvsePzMWSCj3IpDSVM0OehYE"
 	var asrSecretKey string = "WxDpHa2KWmxxlMkz1qsiKjvvidSSKzWs"
 	var asrModelType string = "16k_zh"
 	var ttsEndpoint string = "tts.tencentcloudapi.com"
 	var ttsAppID string = "1369156880"
-	var ttsSecretID string = "YOUR_TENCENT_SECRET_ID"
+	var ttsSecretID string = "AKIDoUzV3e5QlvsePzMWSCj3IpDSVM0OehYE"
 	var ttsSecretKey string = "WxDpHa2KWmxxlMkz1qsiKjvvidSSKzWs"
 	var vadModel string = "silero"
 	var vadEndpoint string = ""
@@ -245,7 +273,7 @@ func main() {
 	callOption.Offer = localSdp
 
 	// 创建 RustpbxGo 客户端连接服务器，通话结束后自动关闭
-	client := createClient(ctx, option, "")
+	client := createClient(ctx, option, "", callOption)
 	// 连接服务器
 	err = client.Connect(callType)
 	if err != nil {
