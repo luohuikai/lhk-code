@@ -73,16 +73,16 @@ func createClient(ctx context.Context, option CreateClientOption, id string, cal
 		endTime := time.UnixMilli(int64(*event.EndTime))
 		option.Logger.Debugf("ASR Delta: %s startTime: %s endTime: %s", event.Text, startTime.String(), endTime.String())
 		if event.Text == "" {
-			return 
+			return
 		}
 
 		// 显示用户讲话内容
 		option.Logger.Infof("User said: %s", event.Text)
 
 		// 调用 TTS 讲出内容
-		ttsCmd := rustpbxgo.TtsCommand {
+		ttsCmd := rustpbxgo.TtsCommand{
 			Command: "tts",
-			Text: event.Text,
+			Text:    event.Text,
 			Speaker: callOption.TTS.Speaker,
 		}
 		ttsData, err := json.Marshal(ttsCmd)
@@ -108,7 +108,7 @@ func createClient(ctx context.Context, option CreateClientOption, id string, cal
 		endTime := time.UnixMilli(int64(*event.EndTime))
 		option.Logger.Debugf("ASR Delta: %s startTime: %s endTime: %s", event.Text, startTime.String(), endTime.String())
 		if option.BreakOnVad {
-			return 
+			return
 		}
 		if err := client.Interrupt(); err != nil {
 			option.Logger.Warnf("Failed to interrupt TTS: %v", err)
@@ -118,7 +118,7 @@ func createClient(ctx context.Context, option CreateClientOption, id string, cal
 	client.OnSpeaking = func(event rustpbxgo.SpeakingEvent) {
 		option.Logger.Infof("Speaking...")
 		if !option.BreakOnVad {
-			return 
+			return
 		}
 		option.Logger.Infof("Interrupting TTS")
 		if err := client.Interrupt(); err != nil {
@@ -220,19 +220,19 @@ func main() {
 			SecretKey: vadSecretKey,
 		},
 		ASR: &rustpbxgo.ASROption{
-			Provider: asrProvider,
-			Endpoint: asrEndpoint,
-			AppID: asrAppID,
-			SecretID: asrSecretID,
+			Provider:  asrProvider,
+			Endpoint:  asrEndpoint,
+			AppID:     asrAppID,
+			SecretID:  asrSecretID,
 			SecretKey: asrSecretKey,
 			ModelType: asrModelType,
 		},
 		TTS: &rustpbxgo.TTSOption{
-			Provider: ttsProvider,
-			Speaker: speaker,
-			Endpoint: ttsEndpoint,
-			AppID: ttsAppID,
-			SecretID: ttsSecretID,
+			Provider:  ttsProvider,
+			Speaker:   speaker,
+			Endpoint:  ttsEndpoint,
+			AppID:     ttsAppID,
+			SecretID:  ttsSecretID,
 			SecretKey: ttsSecretKey,
 		},
 	}
