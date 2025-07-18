@@ -55,13 +55,13 @@ func LoadConfig() (*Config, error) {
 	var asrProvider string = "tencent"
 	var asrEndpoint string = "asr.tencentcloudapi.com"
 	var asrAppID string = "1369156880"
-	var asrSecretID string = "YOUR_TENCENT_SECRET_ID"
-	var asrSecretKey string = "YOUR_TENCENT_SECRET_KEY"
+	var asrSecretID string = "AKIDoUzV3e5QlvsePzMWSCj3IpDSVM0OehYE"
+	var asrSecretKey string = "WxDpHa2KWmxxlMkz1qsiKjvvidSSKzWs"
 	var asrModelType string = "16k_zh"
 	var ttsEndpoint string = "tts.tencentcloudapi.com"
 	var ttsAppID string = "1369156880"
-	var ttsSecretID string = "YOUR_TENCENT_SECRET_ID"
-	var ttsSecretKey string = "YOUR_TENCENT_SECRET_KEY"
+	var ttsSecretID string = "AKIDoUzV3e5QlvsePzMWSCj3IpDSVM0OehYE"
+	var ttsSecretKey string = "WxDpHa2KWmxxlMkz1qsiKjvvidSSKzWs"
 	var vadModel string = "silero"
 	var vadEndpoint string = ""
 	var vadSecretKey string = ""
@@ -105,7 +105,6 @@ func LoadConfig() (*Config, error) {
 	// 创建上下文取消
 	ctx, cancel := context.WithCancel(context.Background())
 	
-
 	config := &Config{
 		Endpoint:         endpoint,
 		Codec:            codec,

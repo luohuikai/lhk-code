@@ -2,17 +2,34 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"sync"
 	"time"
 
 	"github.com/gen2brain/malgo"
+	"github.com/gorilla/websocket"
 	"github.com/pion/webrtc/v3"
 	"github.com/pion/webrtc/v3/pkg/media"
+	"github.com/restsend/rustpbxgo"
 	"github.com/shenjinti/go711"
 	"github.com/shenjinti/go722"
 	"github.com/sirupsen/logrus"
 )
+
+// 定义客户端创建选项结构体
+type CreateClientOption struct {
+	Endpoint string         // 服务器的连接地址
+	Logger   *logrus.Logger // 日志记录器
+	SigChan  chan bool      // 信号通道
+	// LLMHandler     *LLMHandler          // 大语言模型处理器
+	// OpenaiKey      string               // OpenAI的API密钥
+	// OpenaiEndpoint string               // OpenAI服务的接口地址
+	// OpenaiModel    string               // 大语言模型名称
+	// SystemPrompt   string               // 系统提示词
+	BreakOnVad bool                 // 是否在语音活动检测（VAD）时中断 TTS 播报
+	CallOption rustpbxgo.CallOption // 通话相关配置选项
+}
 
 // MediaHandler handles WebRTC and audio encoding
 type MediaHandler struct {
@@ -32,6 +49,95 @@ type MediaHandler struct {
 	playbackDevice *malgo.Device                  // 音频播放设备对象
 	playbackCtx    *malgo.AllocatedContext        // 音频播放上下文对象
 	captureDevice  *malgo.Device                  // 音频捕获设备对象
+}
+
+// 创建客户端
+func createClient(ctx context.Context, option CreateClientOption, id string, callOption rustpbxgo.CallOption) *rustpbxgo.Client {
+	//创建客户端对象
+	client := rustpbxgo.NewClient(option.Endpoint,
+		rustpbxgo.WithLogger(option.Logger),
+		rustpbxgo.WithContext(ctx),
+		rustpbxgo.WithID(id),
+	)
+
+	// 绑定事件处理函数
+	// 连接关闭，记录日志并通知主程序退出
+	client.OnClose = func(reason string) {
+		option.Logger.Infof("Connection closed: %s", reason)
+		option.SigChan <- true
+	}
+	// 收到事件：记录事件日志
+	client.OnEvent = func(event string, payload string) {
+		option.Logger.Debugf("Received event: %s %s", event, payload)
+	}
+	// 发生错误：记录错误日志
+	client.OnError = func(event rustpbxgo.ErrorEvent) {
+		option.Logger.Errorf("Error: %v", event)
+	}
+	// 收到DTMF（按键音）：记录按键信息
+	client.OnDTMF = func(event rustpbxgo.DTMFEvent) {
+		option.Logger.Infof("DTMF: %s", event.Digit)
+	}
+	// 收到语音识别最终结果
+	client.OnAsrFinal = func(event rustpbxgo.AsrFinalEvent) {
+		// 保存对话历史
+		if event.Text != "" {
+			client.History("user", event.Text)
+		}
+
+		// 打断TTS
+		client.Interrupt()
+		startTime := time.UnixMilli(int64(*event.StartTime))
+		endTime := time.UnixMilli(int64(*event.EndTime))
+		option.Logger.Debugf("ASR Delta: %s startTime: %s endTime: %s", event.Text, startTime.String(), endTime.String())
+		if event.Text == "" {
+			return
+		}
+
+		// 显示用户讲话内容
+		option.Logger.Infof("User said: %s", event.Text)
+
+		// 调用 TTS 讲出内容
+		ttsCmd := rustpbxgo.TtsCommand{
+			Command: "tts",
+			Text:    event.Text,
+			Speaker: callOption.TTS.Speaker,
+		}
+		ttsData, err := json.Marshal(ttsCmd)
+		if err != nil {
+			option.Logger.Errorf("Failed to marshal TTS command: %v", err)
+			return
+		}
+		err = client.GetConn().WriteMessage(websocket.TextMessage, ttsData)
+		if err != nil {
+			option.Logger.Errorf("Failed to send TTS command: %v", err)
+		}
+	}
+	// 收到语音识别中间结果：根据配置决定是否打断TTS
+	client.OnAsrDelta = func(event rustpbxgo.AsrDeltaEvent) {
+		startTime := time.UnixMilli(int64(*event.StartTime))
+		endTime := time.UnixMilli(int64(*event.EndTime))
+		option.Logger.Debugf("ASR Delta: %s startTime: %s endTime: %s", event.Text, startTime.String(), endTime.String())
+		if option.BreakOnVad {
+			return
+		}
+		if err := client.Interrupt(); err != nil {
+			option.Logger.Warnf("Failed to interrupt TTS: %v", err)
+		}
+	}
+	// 检测到用户说话：根据配置决定是否打断TTS
+	client.OnSpeaking = func(event rustpbxgo.SpeakingEvent) {
+		option.Logger.Infof("Speaking...")
+		if !option.BreakOnVad {
+			return
+		}
+		option.Logger.Infof("Interrupting TTS")
+		if err := client.Interrupt(); err != nil {
+			option.Logger.Warnf("Failed to interrupt TTS: %v", err)
+		}
+	}
+
+	return client
 }
 
 // NewMediaHandler creates a new media handler
