@@ -148,14 +148,14 @@ func sendTTS(client *rustpbxgo.Client, logger *logrus.Logger, text string, speak
 // 处理语音识别中间结果
 func handleAsrDelta(client *rustpbxgo.Client, logger *logrus.Logger, event rustpbxgo.AsrDeltaEvent, breakOnVad bool) {
 	startTime := time.UnixMilli(int64(*event.StartTime))
-		endTime := time.UnixMilli(int64(*event.EndTime))
-		logger.Debugf("ASR Delta: %s startTime: %s endTime: %s", event.Text, startTime.String(), endTime.String())
-		if breakOnVad {
-			return
-		}
-		if err := client.Interrupt(); err != nil {
-			logger.Warnf("Failed to interrupt TTS: %v", err)
-		}
+	endTime := time.UnixMilli(int64(*event.EndTime))
+	logger.Debugf("ASR Delta: %s startTime: %s endTime: %s", event.Text, startTime.String(), endTime.String())
+	if breakOnVad {
+		return
+	}
+	if err := client.Interrupt(); err != nil {
+		logger.Warnf("Failed to interrupt TTS: %v", err)
+	}
 }
 
 // NewMediaHandler creates a new media handler
