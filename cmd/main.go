@@ -136,6 +136,7 @@ func main() {
 		fmt.Println(err)
 		os.Exit(1)
 	}
+	defer config.Cancel()
 
 	// 客户端选项和通话参数构建
 	// 构建 RustpbxGo 客户端的所有配置选项
@@ -181,6 +182,7 @@ func main() {
 	}
 	option.CallOption = callOption
 
+	
 	// 媒体处理器初始化
 	// 创建媒体处理器，用于管理音频流和 SDP 协议
 	mediaHandler, err := NewMediaHandler(config.Ctx, config.Logger)

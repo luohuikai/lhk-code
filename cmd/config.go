@@ -46,7 +46,7 @@ func LoadConfig() (*Config, error) {
 
 	// 命令行设置
 	// ws://175.27.250.177:8080
-	var endpoint string = "ws://192.168.1.134:8080"
+	var endpoint string = "ws://175.27.250.177:8080"
 	var codec string = "g722"
 	var breakOnVad bool = false
 	var speaker string = "601003"
@@ -55,13 +55,13 @@ func LoadConfig() (*Config, error) {
 	var asrProvider string = "tencent"
 	var asrEndpoint string = "asr.tencentcloudapi.com"
 	var asrAppID string = "1369156880"
-	var asrSecretID string = "YOUR_TENCENT_SECRET_ID"
-	var asrSecretKey string = "YOUR_TENCENT_SECRET_KEY"
+	var asrSecretID string = "AKIDoUzV3e5QlvsePzMWSCj3IpDSVM0OehYE"
+	var asrSecretKey string = "WxDpHa2KWmxxlMkz1qsiKjvvidSSKzWs"
 	var asrModelType string = "16k_zh"
 	var ttsEndpoint string = "tts.tencentcloudapi.com"
 	var ttsAppID string = "1369156880"
-	var ttsSecretID string = "YOUR_TENCENT_SECRET_ID"
-	var ttsSecretKey string = "YOUR_TENCENT_SECRET_KEY"
+	var ttsSecretID string = "AKIDoUzV3e5QlvsePzMWSCj3IpDSVM0OehYE"
+	var ttsSecretKey string = "WxDpHa2KWmxxlMkz1qsiKjvvidSSKzWs"
 	var vadModel string = "silero"
 	var vadEndpoint string = ""
 	var vadSecretKey string = ""
@@ -104,7 +104,7 @@ func LoadConfig() (*Config, error) {
 
 	// 创建上下文取消
 	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	
 
 	config := &Config{
 		Endpoint:         endpoint,
