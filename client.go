@@ -466,6 +466,7 @@ func (c *Client) Connect(callType string) error {
 				if !ok {
 					return
 				}
+				// logrus.Infof("debug message: %v", message)
 				c.processEvent(message)
 			}
 		}

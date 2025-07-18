@@ -9,7 +9,6 @@ import (
 	"sync"
 	"time"
 
-	// "github.com/bytedance/sonic/option"
 	"github.com/gen2brain/malgo"
 	"github.com/gorilla/websocket"
 	"github.com/pion/webrtc/v3"
@@ -83,50 +82,11 @@ func createClient(ctx context.Context, option CreateClientOption, id string, cal
 	}
 	// 收到语音识别最终结果
 	client.OnAsrFinal = func(event rustpbxgo.AsrFinalEvent) {
-		// 保存对话历史
-		if event.Text != "" {
-			client.History("user", event.Text)
-		}
-
-		// 打断TTS
-		client.Interrupt()
-		startTime := time.UnixMilli(int64(*event.StartTime))
-		endTime := time.UnixMilli(int64(*event.EndTime))
-		option.Logger.Debugf("ASR Delta: %s startTime: %s endTime: %s", event.Text, startTime.String(), endTime.String())
-		if event.Text == "" {
-			return
-		}
-
-		// 显示用户讲话内容
-		option.Logger.Infof("User said: %s", event.Text)
-
-		// 调用 TTS 讲出内容
-		ttsCmd := rustpbxgo.TtsCommand{
-			Command: "tts",
-			Text:    event.Text,
-			Speaker: callOption.TTS.Speaker,
-		}
-		ttsData, err := json.Marshal(ttsCmd)
-		if err != nil {
-			option.Logger.Errorf("Failed to marshal TTS command: %v", err)
-			return
-		}
-		err = client.GetConn().WriteMessage(websocket.TextMessage, ttsData)
-		if err != nil {
-			option.Logger.Errorf("Failed to send TTS command: %v", err)
-		}
+		handleAsrFinal(client, option.Logger, event, callOption)
 	}
 	// 收到语音识别中间结果：根据配置决定是否打断TTS
 	client.OnAsrDelta = func(event rustpbxgo.AsrDeltaEvent) {
-		startTime := time.UnixMilli(int64(*event.StartTime))
-		endTime := time.UnixMilli(int64(*event.EndTime))
-		option.Logger.Debugf("ASR Delta: %s startTime: %s endTime: %s", event.Text, startTime.String(), endTime.String())
-		if option.BreakOnVad {
-			return
-		}
-		if err := client.Interrupt(); err != nil {
-			option.Logger.Warnf("Failed to interrupt TTS: %v", err)
-		}
+		handleAsrDelta(client, option.Logger, event, option.BreakOnVad)
 	}
 	// 检测到用户说话：根据配置决定是否打断TTS
 	client.OnSpeaking = func(event rustpbxgo.SpeakingEvent) {
@@ -141,6 +101,61 @@ func createClient(ctx context.Context, option CreateClientOption, id string, cal
 	}
 
 	return client
+}
+
+// 处理语音识别最终结果
+func handleAsrFinal(client *rustpbxgo.Client, logger *logrus.Logger, event rustpbxgo.AsrFinalEvent, callOption rustpbxgo.CallOption) {
+	// 保存对话历史
+	if event.Text != "" {
+		client.History("user", event.Text)
+	}
+
+	// 打断TTS
+	client.Interrupt()
+	startTime := time.UnixMilli(int64(*event.StartTime))
+	endTime := time.UnixMilli(int64(*event.EndTime))
+	logger.Debugf("ASR Delta: %s startTime: %s endTime: %s", event.Text, startTime.String(), endTime.String())
+	if event.Text == "" {
+		return
+	}
+
+	// 显示用户讲话内容
+	logger.Infof("User said: %s", event.Text)
+
+	// 调用TTS讲出内容
+	sendTTS(client, logger, event.Text, callOption.TTS.Speaker)
+}
+
+// 发送 TTS 命令
+func sendTTS(client *rustpbxgo.Client, logger *logrus.Logger, text string, speaker string) {
+	// 调用 TTS 讲出内容
+		ttsCmd := rustpbxgo.TtsCommand{
+			Command: "tts",
+			Text:    text,
+			Speaker: speaker,
+		}
+		ttsData, err := json.Marshal(ttsCmd)
+		if err != nil {
+			logger.Errorf("Failed to marshal TTS command: %v", err)
+			return
+		}
+		err = client.GetConn().WriteMessage(websocket.TextMessage, ttsData)
+		if err != nil {
+			logger.Errorf("Failed to send TTS command: %v", err)
+		}
+}
+
+// 处理语音识别中间结果
+func handleAsrDelta(client *rustpbxgo.Client, logger *logrus.Logger, event rustpbxgo.AsrDeltaEvent, breakOnVad bool) {
+	startTime := time.UnixMilli(int64(*event.StartTime))
+		endTime := time.UnixMilli(int64(*event.EndTime))
+		logger.Debugf("ASR Delta: %s startTime: %s endTime: %s", event.Text, startTime.String(), endTime.String())
+		if breakOnVad {
+			return
+		}
+		if err := client.Interrupt(); err != nil {
+			logger.Warnf("Failed to interrupt TTS: %v", err)
+		}
 }
 
 // NewMediaHandler creates a new media handler
@@ -451,6 +466,7 @@ func (mh *MediaHandler) Stop() error {
 	return nil
 }
 
+// 总体调用
 func SetupAndRunClient(config Config, ctx context.Context) {
 	// 构建 RustpbxGo 客户端的所有配置选项
 	// 处理信号优雅关闭
@@ -567,5 +583,3 @@ func getICEServers(config Config) []webrtc.ICEServer {
 	}
 	return iceSevers
 }
-
-
