@@ -138,7 +138,6 @@ func main() {
 	}
 	defer config.Cancel()
 
-	// 客户端选项和通话参数构建
 	// 构建 RustpbxGo 客户端的所有配置选项
 	// 处理信号优雅关闭
 	sigChan := make(chan bool) // 创建一个用于传递布尔类型数据的通道

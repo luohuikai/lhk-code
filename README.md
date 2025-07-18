@@ -10,7 +10,7 @@ go run . --endpoint ws://175.27.250.177:8080
 或者go run . --endpoint ws://192.168.1.134:8080
 
 ## 3、注意事项！！！
-每次提交前务必将密钥修改为：
+每次提交前**在config.go文件中**务必将密钥修改为：
 
 YOUR_TENCENT_SECRET_ID
 
