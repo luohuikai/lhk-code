@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	// "github.com/bytedance/sonic/option"
 	"github.com/gen2brain/malgo"
 	"github.com/gorilla/websocket"
 	"github.com/pion/webrtc/v3"
@@ -455,7 +456,57 @@ func SetupAndRunClient(config Config, ctx context.Context) {
 	// 处理信号优雅关闭
 	sigChan := make(chan bool) // 创建一个用于传递布尔类型数据的通道
 	// 给结构体实例赋值
-	option := CreateClientOption{
+	option, callOption := buildClientOptions(config, sigChan)
+
+	// 媒体处理器初始化
+	// 创建媒体处理器，用于管理音频流和 SDP 协议
+	mediaHandler, err := NewMediaHandler(config.Ctx, config.Logger)
+	if err != nil {
+		config.Logger.Fatalf("Failed to create media handler: %v", err)
+	}
+	defer mediaHandler.Stop()
+
+	callType := "webrtc"
+	// 获取ICE列表
+	iceServers := getICEServers(config)
+
+	// 解析 SDP
+	localSdp, err := mediaHandler.Setup(config.Codec, iceServers)
+	if err != nil {
+		config.Logger.Fatalf("Failed to get local SDP: %v", err)
+	}
+	config.Logger.Infof("Offer SDP: %v", localSdp)
+	callOption.Offer = localSdp
+
+	// 创建 RustpbxGo 客户端连接服务器，通话结束后自动关闭
+	client := createClient(config.Ctx, option, "", callOption)
+	// 连接服务器
+	err = client.Connect(callType)
+	if err != nil {
+		config.Logger.Fatalf("Failed to connect to server: %v", err)
+	}
+	defer client.Shutdown()
+
+	// 发起通话请求，收到服务器应答后进行 SDP 协商（WebRTC）
+	answer, err := client.Invite(config.Ctx, callOption)
+	if err != nil {
+		config.Logger.Fatalf("Failed to invite: %v", err)
+	}
+	config.Logger.Infof("Answer SDP: %v", answer.Sdp)
+
+	// ICE服务器获取与SDP协商
+	err = mediaHandler.SetupAnswer(answer.Sdp)
+	if err != nil {
+		config.Logger.Fatalf("Failed to setup answer: %v", err)
+	}
+
+	<-sigChan
+	// fmt.Println("Shutting down...")
+}
+
+// 构建客户端选项和通话参数
+func buildClientOptions(config Config, sigChan chan bool) (CreateClientOption, rustpbxgo.CallOption) {
+	option := CreateClientOption {
 		Endpoint:   config.Endpoint,
 		Logger:     config.Logger,
 		SigChan:    sigChan,
@@ -493,16 +544,11 @@ func SetupAndRunClient(config Config, ctx context.Context) {
 		},
 	}
 	option.CallOption = callOption
+	return option, callOption
+}
 
-	// 媒体处理器初始化
-	// 创建媒体处理器，用于管理音频流和 SDP 协议
-	mediaHandler, err := NewMediaHandler(config.Ctx, config.Logger)
-	if err != nil {
-		config.Logger.Fatalf("Failed to create media handler: %v", err)
-	}
-	defer mediaHandler.Stop()
-
-	callType := "webrtc"
+// 获取ICE服务器列表
+func getICEServers(config Config) []webrtc.ICEServer {
 	var iceSevers []webrtc.ICEServer
 	// 获取 ICE 服务器列表并协商 SDP，准备 WebRTC 通话
 	iceUrl := "https://"
@@ -519,37 +565,7 @@ func SetupAndRunClient(config Config, ctx context.Context) {
 			"iceservers": len(iceSevers),
 		}).Info("get iceservers")
 	}
-
-	// 解析 SDP
-	localSdp, err := mediaHandler.Setup(config.Codec, iceSevers)
-	if err != nil {
-		config.Logger.Fatalf("Failed to get local SDP: %v", err)
-	}
-	config.Logger.Infof("Offer SDP: %v", localSdp)
-	callOption.Offer = localSdp
-
-	// 创建 RustpbxGo 客户端连接服务器，通话结束后自动关闭
-	client := createClient(config.Ctx, option, "", callOption)
-	// 连接服务器
-	err = client.Connect(callType)
-	if err != nil {
-		config.Logger.Fatalf("Failed to connect to server: %v", err)
-	}
-	defer client.Shutdown()
-
-	// 发起通话请求，收到服务器应答后进行 SDP 协商（WebRTC）
-	answer, err := client.Invite(config.Ctx, callOption)
-	if err != nil {
-		config.Logger.Fatalf("Failed to invite: %v", err)
-	}
-	config.Logger.Infof("Answer SDP: %v", answer.Sdp)
-
-	// ICE服务器获取与SDP协商
-	err = mediaHandler.SetupAnswer(answer.Sdp)
-	if err != nil {
-		config.Logger.Fatalf("Failed to setup answer: %v", err)
-	}
-
-	<-sigChan
-	fmt.Println("Shutting down...")
+	return iceSevers
 }
+
+

@@ -13,6 +13,7 @@ require (
 )
 
 require (
+	github.com/bytedance/sonic v1.13.3
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/jinzhu/inflection v1.0.0 // indirect
